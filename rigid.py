@@ -8,15 +8,15 @@ from matplotlib import animation
 class rigid_links:
 	def __init__(self,num_iter=1000):
 		self.num_joints = 5
-		self.link_length = np.array([1.5,10.1,9.5,6.0,10.5])  # units cm
+		self.link_length = np.array([1.5,10.1,5.5,6.0,10.5])  # units cm
 		self.link_radius = np.array([1,1,1,1,1])  # units cm
 		self.link_mass = np.array([20,20,20,20,20])   # units grams
 		self.s_hat = np.array([[0,0,.75],[5.05,0,0],[4.75,0,0],[0,3.0,0],[0,0,5.25]])
 
-		self.DH_a = DH_a = [0,0,101,95,0]
-		self.DH_alpha = [0,-np.pi/2,0,0,np.pi/2]
-		self.DH_d = [65,0,0,0,60]
-		self.DH_theta = [0,-np.pi/2,0,np.pi/2,0]
+		self.DH_a = np.array([0,0,101,55,0])
+		self.DH_alpha = np.array([0,-np.pi/2,0,0,np.pi/2])
+		self.DH_d = np.array([65,0,0,0,60])
+		self.DH_theta = np.array([0,-np.pi/2,0,np.pi/2,0])
 
 
 		self.H_hat = np.zeros((self.num_joints,4,4))
@@ -210,8 +210,6 @@ class rigid_links:
 		self.q[i+1] = self.q[i] + self.q_dot[i+1]*dt
 
 
-
-
 	def loop_dynamics_with_g(self,i,torque,dt=1):
 
 		M = self.calc_M(q[pos])
@@ -233,10 +231,10 @@ class rigid_links:
 
 		q_ddot[pos] =  np.dot(M_inv,(torque-h-g))
 		q_dot[pos+1] = q_dot[pos] + q_ddot[pos] * time_step
-		q[pos+1] = q[pos] + q_dot[pos+1] * time_step  
+		q[pos+1] = q[pos] + q_dot[pos+1] * time_step
 
 
-	def convert_coordinate_frames(self,i,scale_factor=0.05): 
+	def convert_coordinate_frames(self,i,scale_factor=0.05,endpoint=True): 
 
 		link_coordinates = np.zeros((self.num_joints+1,4))
 		link_coordinates[:,3] = 1
@@ -245,18 +243,29 @@ class rigid_links:
 		q_base_reference = np.zeros((self.num_joints+1,4))
 		q_base_reference[:,3] = 1
 
-		T0i = self.calc_Tk(1,self.q[i][0])
-		q_base_reference[1,:] = np.dot(T0i,link_coordinates[1,:])
 
-		for j in range(2,self.num_joints):
+		T0i = self.calc_Tk(1,self.q[i][0])
+		q_base_reference[1,:] = np.matmul(T0i,link_coordinates[1,:])
+
+		print(q_base_reference[1,:])
+
+		for j in range(2,self.num_joints+1):
+
 
 			#calculate transformation matrix for each link frame
-			T0i = np.dot(T0i,self.calc_Tk(j,self.q[i][j-1]))
+			T0i = np.matmul(T0i,self.calc_Tk(j,self.q[i][j-1]))
 
 			#transform the link coordinates to the correct reference frame
 			q_base_reference[j,:] = np.dot(T0i,link_coordinates[j,:])
 
-		return q_base_reference*0.05
+			print(q_base_reference[j,:])
+
+		if(endpoint):
+			end_peice = np.matmul(T0i,[10,10,0,1])
+			q_base_reference = np.concatenate([q_base_reference,end_peice],axis=0)
+
+
+		return q_base_reference*scale_factor
 
 
 

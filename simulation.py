@@ -53,14 +53,11 @@ class simulation:
 	#position array has shape (num_joints, 4), or (num_joints, (x,y,z,1))
 	def plot_rigid(self,position_arr):
 
-		#add in origin as starting point
-		position_arr = np.concatenate([np.zeros((1,4)),position_arr],axis=0)
 
-
-		for i in range(self.num_links):
-			x = np.linspace(position_arr[i][0],position_arr[i+1][0])
-			y = np.linspace(position_arr[i][1],position_arr[i+1][1])
-			z = np.linspace(position_arr[i][2],position_arr[i+1][2])
+		for i in range(len(position_arr)-1):
+			x = np.linspace(position_arr[i,0],position_arr[i+1,0])
+			y = np.linspace(position_arr[i,1],position_arr[i+1,1])
+			z = np.linspace(position_arr[i,2],position_arr[i+1,2])
 
 			self.lines[i].set_data(x,y)
 			self.lines[i].set_3d_properties(z)
@@ -68,7 +65,7 @@ class simulation:
 
 
 	def update(self,n):
-		torque = [100,0,0,0,0]
+		torque = [0,0,0,0,0]
 
 		self.rigid_links.run_dynamics(n,torque)
 		self.rigid_links.convert_coordinate_frames(n)
