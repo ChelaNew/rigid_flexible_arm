@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 
-import robot
+import flexible
 import rigid
 
 
@@ -14,6 +14,7 @@ class simulation:
 		self.init_graph()
 
 		self.lines = []
+		self.line_index = 0
 		for i in range(0,8):
 			line, = self.ax.plot([], [], [], lw=2)
 			self.lines.append(line)
@@ -21,7 +22,12 @@ class simulation:
 		self.num_links = num_links
 
 		self.rigid_links = rigid.rigid_links()
+		self.flexible_link = flexible.flexible_link()
+		self.flexible_link.set_initial_position(np.pi/2)
+
 		self.num_joints = self.rigid_links.num_joints
+
+		self.run_plots = True
 
 
 	def init_graph(self):
@@ -44,6 +50,7 @@ class simulation:
 		y = rho*np.sin(theta)*np.sin(phi) + y_shift
 		z = rho*np.cos(phi) + z_shift
 
+
 		if (plot_data):
 			line.set_data(x,y)
 			line.set_3d_properties(z)
@@ -65,13 +72,20 @@ class simulation:
 
 
 	def update(self,n):
-		torque = [0,0,0,0,0]
 
-		self.rigid_links.run_dynamics(n,torque)
-		self.rigid_links.convert_coordinate_frames(n)
-		rigid_link_pos = self.rigid_links.convert_coordinate_frames(n)
+		print(n)
 
-		self.plot_rigid(rigid_link_pos)
+		torque = 5
+		# print(torque)
+
+		rho_arr, theta_arr = self.flexible_link.run_dynamics_loop(n,torque)
+		phi_arr = np.pi/2*np.ones(len(rho_arr))
+
+		self.plot_flexible(self.lines[0],rho_arr,theta_arr,phi_arr)
+
+		self.flexible_link.plots(['gen_coors','F'],n)
+
+			
 
 
 

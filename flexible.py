@@ -1,12 +1,15 @@
+from matplotlib import pyplot as plt
 import numpy as np
+
 from scipy.optimize import root_scalar
 from scipy.integrate import quad
 import numdifftools as nd
+from scipy import linalg
 
 
 class flexible_link:
 
-	def __init__(self):
+	def __init__(self,num_iter=1000):
 
 		self.L = 5
 		self.rho = 5.9292
@@ -22,17 +25,37 @@ class flexible_link:
 
 		self.g = 9.18
 
-		self.num_modes = 2
+		self.num_modes = 1
 		self.alphas = self.find_eigenvalues()
 
 		self.psi_L = self.evaluate_mode_functions(self.L)
 
-		self.M = self.create_M(np.zeros(self.num_modes))
-		self.C = self.create_C(0,np.zeros(self.num_modes),np.zeros(self.num_modes))
-		self.K = self.create_K(np.zeros(self.num_modes))
-		self.G = self.create_G(0)
-		self.F = self.create_F(0,np.zeros(self.num_modes))
-		self.Q = self.create_Q(0)
+		self.theta = np.zeros(num_iter)
+		self.theta_dot = np.zeros(num_iter)
+		self.theta_ddot = np.zeros(num_iter)
+
+		self.q = np.zeros((self.num_modes,num_iter))
+		self.q_dot = np.zeros((self.num_modes,num_iter))
+		self.q_ddot = np.zeros((self.num_modes,num_iter))
+
+		self.torque_in = 0
+
+		self.M = np.zeros((self.num_modes+1,self.num_modes+1))
+		self.Q = np.zeros(self.num_modes+1)
+		self.C = np.zeros(self.num_modes+1)
+		self.K = np.zeros(self.num_modes+1)
+		self.G = np.zeros(self.num_modes+1)
+		self.F = np.zeros(self.num_modes+1)
+
+		self.M_arr = np.zeros((self.num_modes+1,self.num_modes+1,num_iter))
+		self.Q_arr = np.zeros((self.num_modes+1,num_iter))
+		self.C_arr = np.zeros((self.num_modes+1,num_iter))
+		self.K_arr = np.zeros((self.num_modes+1,num_iter))
+		self.G_arr = np.zeros((self.num_modes+1,num_iter))
+		self.F_arr = np.zeros((self.num_modes+1,num_iter))
+
+	def set_initial_position(self,theta):
+		self.theta[0] = theta
 
 
 	def evaluate_mode_functions(self,x):
@@ -95,7 +118,7 @@ class flexible_link:
 		m11 = self.J + self.M_L*(self.L**2 + m11_sum1) + self.M_bar*m11_sum2
 		M[0][0] = m11
 			
-		self.M = M
+		return M
 
 
 	def create_C(self,theta_dot,q,q_dot):
@@ -113,7 +136,7 @@ class flexible_link:
 
 		C[0] = 2*theta_dot*C0_sum1 + 2*theta_dot*C0_sum2
 
-		self.C = C
+		return C
 
 
 	def create_K(self,q):
@@ -123,16 +146,16 @@ class flexible_link:
 		for i in range(self.num_modes):
 			K[i+1] = self.E*self.I*quad(lambda x: nd.Derivative(self.evaluate_mode_functions, x, n=2)(x)[i], 0, self.L)[0]*q[i]
 
-		self.K = K
+		return K
 
 	def create_G(self,theta):
 		G = np.zeros(self.num_modes+1)
 
 		G[0] = 0.5*self.M_tot*self.g*self.L*np.cos(theta) + self.M_L*self.g*self.L*np.cos(theta)
 
-		self.G = G
+		return G
 
-	def create_F(self,theta_dot,q_dot,u=100,u1=0):
+	def create_F(self,theta_dot,q_dot,u=1,u1=0):
 		F = np.zeros(self.num_modes+1)
 
 		F[0] = u*theta_dot
@@ -142,14 +165,122 @@ class flexible_link:
 
 		F[1]=u1*q_dot[i]
 
-		self.F = F
+		return F
+
 
 	def create_Q(self,torque_in):
 		Q = np.transpose(np.zeros(self.num_modes+1))
 
 		Q[0] = torque_in
 
-		self.Q = Q
+		return Q
+
+	def generate_plotting_arrays(self,i,dx=0.1):
+		position_arr = np.arange(0,self.L,dx)
+		angle_arr = [0]
+
+		for x in np.arange(dx,self.L,dx):
+			phi = self.evaluate_mode_functions(x)
+			displacement = np.dot(phi,self.q[:,i])
+
+			angle_arr.append( np.arctan(displacement/x) )
+
+		angle_arr += self.theta[i]
+
+		return position_arr,angle_arr
+
+
+	def run_dynamics_loop(self,i,torque_in,dt=1):
+
+		self.torque_in = torque_in
+
+		self.M = self.create_M(self.q[:,i])
+		self.Q = self.create_Q(torque_in)
+		self.C = self.create_C(self.theta_dot[i],self.q[:,i],self.q_dot[:,i])
+		self.K = self.create_K(self.q[:,i])
+		self.G = self.create_G(self.theta[i])
+		self.F = self.create_F(self.theta_dot[i],self.q_dot[:,i])
+
+		accel_arr = linalg.solve(self.M, self.Q-self.K)
+		self.theta_ddot[i+1] = accel_arr[0]
+		self.q_ddot[:,i+1] = accel_arr[1:]
+
+		self.theta_dot[i+1] = self.theta_dot[i] + self.theta_ddot[i+1]*dt
+		self.theta[i+1] = self.theta[i] + self.theta_dot[i+1]*dt
+
+		self.q_dot[:,i+1] = self.q_dot[:,i] + self.q_ddot[:,i+1]*dt
+		self.q[:,i+1] = self.q[:,i] + self.q_dot[:,i+1]*dt
+
+		print(self.theta[i+1],self.q[0][i+1])
+
+		return self.generate_plotting_arrays(i)
+
+
+
+
+	def plots(self,type,i=0,i_stop=100,dx=0.1):
+
+		if 'modes' in type:
+			phi = []
+
+			for x in np.arange(dx,self.L,dx):
+				phi.append(self.evaluate_mode_functions(x))
+
+			plt.plot(phi)
+
+		if 'gen_coors' in type:
+
+			if (i >= i_stop):
+				plt.figure(2)
+
+				plt.subplot(self.num_modes+1, 3, 1)
+				plt.plot(self.theta[:i])
+				plt.subplot(self.num_modes+1, 3, 2)
+				plt.plot(self.theta_dot[:i])
+				plt.subplot(self.num_modes+1, 3, 3)
+				plt.plot(self.theta_ddot[:i])
+
+				for j in range(1,self.num_modes+1):
+					plt.subplot(self.num_modes+1, 3, 3*j+1)
+					plt.plot(self.q[j-1][:i])
+					plt.subplot(self.num_modes+1, 3, 3*j+2)
+					plt.plot(self.q_dot[j-1][:i])
+					plt.subplot(self.num_modes+1, 3, 3*j+3)
+					plt.plot(self.q_ddot[j-1][:i])
+
+		if 'M' in type:
+			self.M_arr[:,:,i] = self.M
+
+			if (i >= i_stop):
+				plt.figure(3)
+
+				plot_index=1
+				for j in range(self.num_modes+1):
+					for k in range(self.num_modes+1):
+						plt.subplot(self.num_modes+1, self.num_modes+1, plot_index)
+						plt.plot(self.M_arr[j][k][:i])
+						plot_index += 1
+
+
+		if 'F' in type:
+			self.F_arr[:,i] = self.F
+
+			if (i >= i_stop):
+				plt.figure(4)
+
+				for j in range(self.num_modes+1):
+					plt.subplot(1,self.num_modes+1, j+1)
+					plt.plot(self.F_arr[j][:i])
+
+		if (i >= i_stop):
+			plt.show()
+
+
+
+			
+
+
+
 
 
 	

@@ -7,11 +7,11 @@ from matplotlib import animation
 
 class rigid_links:
 	def __init__(self,num_iter=1000):
-		self.num_joints = 5
-		self.link_length = np.array([1.5,10.1,5.5,6.0,10.5])  # units cm
-		self.link_radius = np.array([1,1,1,1,1])  # units cm
-		self.link_mass = np.array([20,20,20,20,20])   # units grams
-		self.s_hat = np.array([[0,0,.75],[5.05,0,0],[4.75,0,0],[0,3.0,0],[0,0,5.25]])
+		self.num_joints = 2
+		self.link_length = np.array([0,5])  # units cm
+		self.link_radius = np.array([1,1])  # units cm
+		self.link_mass = np.array([20,20])   # units grams
+		self.s_hat = np.array([[0,0,0],[0,0,0],[4.75,0,0],[0,3.0,0],[0,0,5.25]])
 
 		self.DH_a = np.array([0,0,101,55,0])
 		self.DH_alpha = np.array([0,-np.pi/2,0,0,np.pi/2])
@@ -125,9 +125,9 @@ class rigid_links:
 
 	def calc_dTi_dqj(self,i,j,theta):
 
-		assert len(theta) == 5, "Error: calc_dTi_dqj - Input parameter theta should be a vector."
-		assert (i >= 1) and (i <= 5), "Error: calc_dTi_dqj - indexes starting with one."
-		assert (j >= 1) and (j <= 5), "Error: calc_dTi_dqj - indexes starting with one."
+		assert len(theta) == self.num_joints, "Error: calc_dTi_dqj - Input parameter theta should be a vector."
+		assert (i >= 1) and (i <= self.num_joints), "Error: calc_dTi_dqj - indexes starting with one."
+		assert (j >= 1) and (j <= self.num_joints), "Error: calc_dTi_dqj - indexes starting with one."
 		#assert (j <= i), "Error: calc_dTi_dqj - j must be less than or equal to i."
 		
 		if j > i :
@@ -142,7 +142,7 @@ class rigid_links:
 				#print("Delta Pow")
 		return T
 
-		# Calculate the h matrix
+	# calculate the h matrix
 	def calc_h(self,theta,theta_dot):
 		h = np.zeros(self.num_joints)
 		for i in range(0,self.num_joints):
@@ -162,10 +162,10 @@ class rigid_links:
 	#i,j,k --> k,j.m
 	def calc_dTi_dqj_dqk(self,i,j,k,theta):
 
-		assert len(theta) == 5, "Error: calc_dTi_dqj - Input parameter theta should be a vector."
-		assert (i >= 1) and (i <= 5), "Error: calc_dTi_dqj - indexes starting with one."
-		assert (j >= 1) and (j <= 5), "Error: calc_dTi_dqj - indexes starting with one."
-		assert (k >= 1) and (k <= 5), "Error: calc_dTi_dqj - indexes starting with one."
+		assert len(theta) == self.num_joints, "Error: calc_dTi_dqj - Input parameter theta should be a vector."
+		assert (i >= 1) and (i <= self.num_joints), "Error: calc_dTi_dqj - indexes starting with one."
+		assert (j >= 1) and (j <= self.num_joints), "Error: calc_dTi_dqj - indexes starting with one."
+		assert (k >= 1) and (k <= self.num_joints), "Error: calc_dTi_dqj - indexes starting with one."
 		assert (j <= i), "Error: calc_dTi_dqj - j must be less than or equal to i."
 		
 
@@ -247,18 +247,13 @@ class rigid_links:
 		T0i = self.calc_Tk(1,self.q[i][0])
 		q_base_reference[1,:] = np.matmul(T0i,link_coordinates[1,:])
 
-		print(q_base_reference[1,:])
-
 		for j in range(2,self.num_joints+1):
-
 
 			#calculate transformation matrix for each link frame
 			T0i = np.matmul(T0i,self.calc_Tk(j,self.q[i][j-1]))
 
 			#transform the link coordinates to the correct reference frame
 			q_base_reference[j,:] = np.dot(T0i,link_coordinates[j,:])
-
-			print(q_base_reference[j,:])
 
 		if(endpoint):
 			end_peice = np.matmul(T0i,[10,10,0,1])
