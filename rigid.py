@@ -25,7 +25,8 @@ class rigid_links:
 		self.q = np.zeros((num_iter,self.num_joints),dtype=float)
 		self.q_dot = np.zeros((num_iter,self.num_joints),dtype=float)
 		self.q_ddot = np.zeros((num_iter,self.num_joints),dtype=float)
-		
+
+		self.ee_pos = np.zeros((num_iter,3),dtype=float)
 
 
 	def calc_Tk(self,k,theta):
@@ -209,7 +210,12 @@ class rigid_links:
 		self.q_dot[i+1] = self.q_dot[i] + self.q_ddot[i]*dt
 		self.q[i+1] = self.q[i] + self.q_dot[i+1]*dt
 
-		return self.convert_coordinate_frames(i)
+		pos_arr = self.convert_coordinate_frames(i+1)
+		ee_pos = np.array([pos_arr[-1,0],pos_arr[-1,1],pos_arr[-1,2]])
+
+		ee_accel = self.calc_ee_accel(i,ee_pos,dt)
+
+		return pos_arr, ee_accel
 
 
 	def loop_dynamics_with_g(self,i,torque,dt=1):
@@ -235,6 +241,13 @@ class rigid_links:
 		q_dot[pos+1] = q_dot[pos] + q_ddot[pos] * time_step
 		q[pos+1] = q[pos] + q_dot[pos+1] * time_step
 
+	def calc_ee_accel(self,i,pos_arr,dt):
+		self.ee_pos[i+1,:] = pos_arr
+
+		accel = (self.ee_pos[i+1,:] - self.ee_pos[i,:])/(dt**2)
+
+		return accel
+
 
 	def convert_coordinate_frames(self,i,scale_factor=0.05,endpoint=True): 
 
@@ -258,7 +271,7 @@ class rigid_links:
 			q_base_reference[j,:] = np.dot(T0i,link_coordinates[j,:])
 
 		if(endpoint):
-			end_peice = np.matmul(T0i,[10,10,0,1])
+			end_peice = np.matmul(T0i,[30,30,0,1])
 			q_base_reference = np.concatenate([q_base_reference,end_peice],axis=0)
 
 

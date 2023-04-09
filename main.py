@@ -5,8 +5,6 @@ import numpy as np
 import simulation as s
 
 
-
-
 def main():
 
 	sim = s.simulation()

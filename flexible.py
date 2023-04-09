@@ -189,7 +189,7 @@ class flexible_link_dynamics:
 		return position_arr,angle_arr
 
 
-	def run_dynamics_loop(self,i,torque_in,dt=1):
+	def run_dynamics_loop_single_link(self,i,torque_in,dt=1):
 
 		self.torque_in = torque_in
 
@@ -211,7 +211,33 @@ class flexible_link_dynamics:
 		self.q_dot[:,i+1] = self.q_dot[:,i] + self.q_ddot[:,i+1]*dt
 		self.q[:,i+1] = self.q[:,i] + self.q_dot[:,i+1]*dt
 
-		print(self.theta[i+1],self.q[0][i+1])
+		# print(self.theta[i+1],self.q[0][i+1])
+
+		return self.generate_plotting_arrays(i)
+
+	def run_dynamics_loop_with_rigid(self,i,torque_in,dt=1,external_accel=0):
+
+		self.torque_in = torque_in
+
+		self.M = self.create_M(self.q[:,i])
+		self.Q = self.create_Q(torque_in)
+		# self.C = self.create_C(self.theta_dot[i],self.q[:,i],self.q_dot[:,i])
+		self.K = self.create_K(self.q[:,i])
+		# self.G = self.create_G(self.theta[i])
+		# self.F = self.create_F(self.theta_dot[i],self.q_dot[:,i])
+
+		accel_arr = linalg.solve(self.M, self.Q-self.K)
+		self.theta_ddot[i+1] = accel_arr[0] + external_accel
+		self.q_ddot[:,i+1] = accel_arr[1:]
+
+
+		self.theta_dot[i+1] = self.theta_dot[i] + self.theta_ddot[i+1]*dt
+		self.theta[i+1] = self.theta[i] + self.theta_dot[i+1]*dt
+
+		self.q_dot[:,i+1] = self.q_dot[:,i] + self.q_ddot[:,i+1]*dt
+		self.q[:,i+1] = self.q[:,i] + self.q_dot[:,i+1]*dt
+
+		# print(self.theta[i+1],self.q[0][i+1])
 
 		return self.generate_plotting_arrays(i)
 
