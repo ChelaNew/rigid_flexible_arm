@@ -22,8 +22,9 @@ class simulation:
 		self.num_links = num_links
 
 		self.rigid_links = rigid.rigid_links()
-		self.flexible_link = flexible.flexible_link()
-		self.flexible_link.set_initial_position(np.pi/2)
+		self.FL_in_plane = flexible.flexible_link_dynamics()
+		self.FL_out_plane = flexible.flexible_link_dynamics()
+		self.FL_in_plane.set_initial_position(np.pi/2)
 
 		self.num_joints = self.rigid_links.num_joints
 
@@ -32,6 +33,7 @@ class simulation:
 
 	def init_graph(self):
 		self.ax.axis("equal")
+		# self.ax.view_init(elev=90, azim=1)
 
 		self.ax.set_xlim3d([-10.0, 10.0])
 		self.ax.set_xlabel('X')
@@ -75,15 +77,22 @@ class simulation:
 
 		print(n)
 
-		torque = 5
+		torque = 0.1
 		# print(torque)
 
-		rho_arr, theta_arr = self.flexible_link.run_dynamics_loop(n,torque)
-		phi_arr = np.pi/2*np.ones(len(rho_arr))
+		rigi_pos_arr = self.rigid_links.run_dynamics(n,[0,0])
+		self.plot_rigid(rigi_pos_arr)
 
-		self.plot_flexible(self.lines[0],rho_arr,theta_arr,phi_arr)
 
-		self.flexible_link.plots(['gen_coors','F'],n)
+
+		# rho_arr, theta_arr = self.FL_in_plane.run_dynamics_loop(n,0)
+		# rho_arr, phi_arr = self.FL_out_plane.run_dynamics_loop(n,torque)
+
+		# phi_arr = phi_arr + np.pi/2*np.ones(len(rho_arr))
+
+		# self.plot_flexible(self.lines[0],rho_arr,theta_arr,phi_arr)
+
+		# self.FL_in_plane.plots(['gen_coors','F'],n,i_stop=100)
 
 			
 

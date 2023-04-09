@@ -209,6 +209,8 @@ class rigid_links:
 		self.q_dot[i+1] = self.q_dot[i] + self.q_ddot[i]*dt
 		self.q[i+1] = self.q[i] + self.q_dot[i+1]*dt
 
+		return self.convert_coordinate_frames(i)
+
 
 	def loop_dynamics_with_g(self,i,torque,dt=1):
 
